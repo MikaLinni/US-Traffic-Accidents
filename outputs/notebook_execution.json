@@ -1,6 +1,6 @@
 {
   "success": true,
-  "cells": 26,
+  "cells": 45,
   "environment": "fresh local Python process, cached full Parquet and frozen model results",
   "colab_verified": false,
   "fresh_download_verified": false

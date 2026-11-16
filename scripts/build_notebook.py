@@ -1,5 +1,4 @@
 """Упаковывает текущие модули в один переносимый ноутбук Colab."""
-import base64
 import hashlib
 import io
 import json
@@ -15,7 +14,9 @@ with zipfile.ZipFile(buffer,'w',zipfile.ZIP_DEFLATED) as bundle:
     bundle.writestr('src/__init__.py','"""Модули проекта US Accidents."""\n')
     bundle.write(root/'requirements.txt','requirements.txt')
     bundle.write(root/'docs/FINAL_PROTOCOL.md','docs/FINAL_PROTOCOL.md')
-payload=base64.b64encode(buffer.getvalue()).decode()
+archive_path = root/'deliverables/project_code.zip'
+archive_path.parent.mkdir(parents=True, exist_ok=True)
+archive_path.write_bytes(buffer.getvalue())
 digest=hashlib.sha256(buffer.getvalue()).hexdigest()
 c=[]
 def md(s): c.append(nbf.v4.new_markdown_cell(s))
@@ -23,11 +24,11 @@ def code(s): c.append(nbf.v4.new_code_cell(s))
 md('''# US Traffic Accidents Patterns and Severity Prediction
 Финальный проект №42, Programming for Data Analysis and Database.
 
-Запускайте сверху вниз. Одного этого ноутбука достаточно: он разворачивает настоящие Python-модули `src`, устанавливает библиотеки и автоматически получает проверенную копию данных. Полный набор содержит 7 728 394 записи. Severity описывает влияние ДТП на движение.
+Запускайте сверху вниз. Для Colab нужны этот ноутбук и небольшой `project_code.zip`: выберите ZIP один раз в ячейке загрузки модулей. Датасет загружается автоматически. Код остаётся в обычных Python-файлах `src`, без Base64. Полный набор содержит 7 728 394 записи. Severity описывает влияние ДТП на движение.
 
 Обработка всех данных и обучение требуют времени, интернета и свободного диска. Локально используется уже подготовленный Parquet. Все результаты сохраняются в папке проекта. Предыдущие исследования сохранены отдельно в репозитории, а здесь выполняется только итоговый протокол.''')
 code('''from pathlib import Path
-import os, sys, json, subprocess, base64, hashlib, io, zipfile
+import os, sys, json, subprocess, zipfile
 IN_COLAB = 'google.colab' in sys.modules
 if not IN_COLAB:
     try:
@@ -46,17 +47,18 @@ os.chdir(ROOT)
 os.environ['MPLCONFIGDIR'] = str(ROOT / '.mpl_cache')
 os.environ['LOKY_MAX_CPU_COUNT'] = '4'
 ''')
-code(f'''# Это архив исходников проекта, а не скрытая реализация: после распаковки код доступен в src/.
-MODULES_B64 = {payload!r}
-raw = base64.b64decode(MODULES_B64)
-assert hashlib.sha256(raw).hexdigest() == {digest!r}
-# В локальном репозитории не заменяем исходники встроенной копией.
-if IN_COLAB or not (ROOT / 'src/pipeline.py').exists():
-    with zipfile.ZipFile(io.BytesIO(raw)) as bundle:
+code('''# Один раз выберите project_code.zip. Датасет вручную загружать не нужно.
+archive = ROOT / 'project_code.zip'
+if not (ROOT / 'src/pipeline.py').exists():
+    if not archive.exists():
+        from google.colab import files
+        uploaded = files.upload()
+        if 'project_code.zip' not in uploaded:
+            raise FileNotFoundError('Выберите файл project_code.zip')
+    with zipfile.ZipFile(archive) as bundle:
         for name in bundle.namelist():
-            target = (ROOT / name).resolve()
-            if not target.is_relative_to(ROOT.resolve()):
-                raise ValueError('Небезопасный путь в архиве модулей')
+            if not (ROOT / name).resolve().is_relative_to(ROOT.resolve()):
+                raise ValueError('Недопустимый путь в ZIP')
         bundle.extractall(ROOT)
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -103,6 +105,8 @@ print('Максимальные погрешности:', optimization['max_abs_
 ''')
 md('''## SQLite и агрегаты
 Схема: `states(state_id PK, state_code UNIQUE)` связана 1:N с `accidents(accident_id PK, state_id FK, severity, start_time, weather)`. Таблица `project_info` хранит число загруженных строк. Код `src/database.py` содержит восемь SQL-запросов: JOIN, GROUP BY, HAVING, CTE, подзапрос и RANK OVER. Результаты загружаем в Pandas и сохраняем в CSV. Агрегаты сохраняем в SQLite и Parquet.''')
+md(''.join(json.loads((root/'docs/experiments/US_Accidents_Exploration.ipynb').read_text())['cells'][21]['source']))
+md(''.join(json.loads((root/'docs/experiments/US_Accidents_Exploration.ipynb').read_text())['cells'][24]['source']))
 code('''results = run_analysis(PARQUET, DATABASE, OUT)
 from src.database import QUERIES
 for name, query in QUERIES.items():
@@ -111,14 +115,35 @@ for name, query in QUERIES.items():
 ''')
 md('''## EDA и интерпретация
 Графики показывают зарегистрированные ДТП. Без данных о пробеге по штатам и погоде нельзя оценить риск ДТП или причинный эффект. Пики по часам могут отражать интенсивность движения и покрытие источников. 2023 год неполный. Дисбаланс Severity делает Accuracy недостаточной метрикой.''')
-code('''for name in ['severity','hour','year','state','missing']:
-    display(Image(filename=str(OUT / 'figures' / (name + '.png'))))
-print((OUT / 'figures/interpretation.txt').read_text())
+code('''import plotly.express as px
+import matplotlib.pyplot as plt
+import numpy as np
+
+def show_plot():
+    # Явно показываем PNG, даже если модуль сохранения графиков включил backend Agg.
+    import io
+    image_buffer = io.BytesIO()
+    plt.gcf().savefig(image_buffer, format='png', dpi=140, bbox_inches='tight')
+    display(Image(data=image_buffer.getvalue()))
+    plt.close()
+
 display(pd.read_csv(OUT / 'numeric_description.csv'))
-# Интерактивный график Plotly: наведение, масштабирование, сохранение.
-import plotly.express as px
-px.bar(results['severity'], x='severity', y='accidents', title='Число ДТП по Severity').show()
+print((OUT / 'figures/interpretation.txt').read_text())
 ''')
+# Возвращаем отдельные интерактивные графики прежнего ноутбука.
+old = json.loads((root/'docs/experiments/US_Accidents_Exploration.ipynb').read_text())
+graph_notes = [
+    ('Распределение Severity', 'Показывает дисбаланс метки: преобладает Severity 2. Это влияние на движение, а не тяжесть травм.'),
+    ('Десять штатов', 'Сравниваем количество зарегистрированных событий. Без пробега и интенсивности движения это не сравнение риска.'),
+    ('Местный час начала', 'Пики могут отражать часы поездок и покрытие источников. График не доказывает опасность конкретного часа.'),
+    ('Количество записей по годам', 'Покрытие данных меняется со временем. 2023 год неполный, его нельзя напрямую сравнивать с полными годами.'),
+    ('Частые погодные условия', 'Пропуски погоды исключены. Частота ДТП при погоде не равна риску ДТП: нет числа поездок в этих условиях.'),
+]
+for index, (title, interpretation) in zip(range(15, 20), graph_notes):
+    md('### ' + title + '\n\n' + interpretation)
+    code(''.join(old['cells'][index]['source']))
+md('### Пропуски в исходных данных\n\nПропуск не означает ноль. Показываем десять столбцов с наибольшим числом пропусков до очистки.')
+code(''.join(old['cells'][32]['source']).replace('plt.show()', 'show_plot()'))
 md('''## Две гипотезы и размер связи
 H0: погода и Severity независимы. H0: день/ночь и Severity независимы. Используем chi-square и Cramér V. При миллионах записей p-value может округляться до 0 из-за машинной точности. Это не вероятность, равная математическому нулю. Малый V указывает на слабую связь. Зависимость соседних событий ограничивает статистическую интерпретацию.''')
 code('''quality_file = OUT / 'quality_hypotheses.json'
@@ -127,6 +152,15 @@ if not quality_file.exists():
 hypotheses = json.loads(quality_file.read_text())
 display(pd.DataFrame({k:v for k,v in hypotheses.items() if k != 'quality'}).T)
 ''')
+md('### Таблицы проверки гипотез\n\nВ таблицах показано число наблюдений каждого класса. По ним рассчитаны chi-square и Cramér V.')
+code('''weather_table = pd.read_csv(OUT / 'weather_severity.csv', index_col=0)
+day_table = pd.read_csv(OUT / 'day_severity.csv', index_col=0)
+display(weather_table)
+display(day_table)
+''')
+md(''.join(old['cells'][35]['source']))
+code(''.join(old['cells'][36]['source']).replace('plt.show()', 'show_plot()'))
+md('Сравниваем доли внутри дня и ночи. Различия описывают состав зарегистрированных ДТП, но не доказывают причинный эффект освещённости.')
 md('''## Pandas против Polars
 Одна задача: количество ДТП по Severity на одинаковых файлах. Pandas считает инкрементально, Polars использует lazy streaming. По два запуска в разном порядке, отдельные процессы, приблизительная пиковая RSS. Кэш ОС и оборудование влияют на время.''')
 code('''from src.benchmark import compare_tools
@@ -163,13 +197,10 @@ code('''display(scores[scores.model.str.startswith('hgb')])
 validation_scores = pd.read_csv(OUT / 'final/validation_scores.csv')
 display(validation_scores[validation_scores.model.isin([selected, selected + '_no_weather'])])
 ''')
-md('''## Интерактивное меню
-Меню работает с SQLite и параметризованными запросами. По умолчанию оно выключено, чтобы автоматический запуск не ждал ввода. Для демонстрации включите его и выберите год или штат. Выход: 0.''')
-code('''RUN_MENU = False
-if RUN_MENU:
-    run_menu(DATABASE)
-else:
-    print('Для демонстрации меню установите RUN_MENU=True и запустите эту ячейку.')
+md('''## Интерактивная панель анализа
+Выберите год, штат и Severity и нажмите «Показать результаты». Панель показывает количество записей, доли классов и интерактивные графики. «Сохранить CSV» сохраняет агрегаты показанной выборки. Используется готовая SQLite; обучение моделей для панели не требуется. Консольное меню src/menu.py остаётся доступным для запуска из терминала.''')
+code('''from src.dashboard import show_dashboard
+show_dashboard(DATABASE, OUT / 'dashboard')
 ''')
 md('''## Сохранение результатов
 Создаём ZIP с таблицами, графиками, моделью и метриками. Сырые и обработанные данные в ZIP не входят. В Colab результат можно скачать одной кнопкой. Для постоянного повторного использования Parquet применяйте Google Drive из настройки в начале.''')
@@ -182,4 +213,5 @@ if IN_COLAB:
 ''')
 notebook=nbf.v4.new_notebook(cells=c,metadata={'kernelspec':{'display_name':'Python 3','language':'python','name':'python3'},'language_info':{'name':'python','version':'3.13'}})
 nbf.write(notebook,root/'US_Accidents_Colab.ipynb')
-print('Ячеек',len(c),'SHA модулей',digest)
+(root/'docs/COLAB_MODULES_CELL.py').write_text(c[2].source + '\n')
+print('Ячеек',len(c),'Архив модулей',archive_path,'SHA',digest)

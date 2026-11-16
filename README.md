@@ -1,5 +1,25 @@
 # US Traffic Accidents Patterns and Severity Prediction
 
+Группа **AAI-2602**: **Bekmukhamedova Meruert**, **Aiganym Gadilova**.
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MikaLinni/US-Traffic-Accidents/blob/main/US_Accidents_Colab.ipynb)
+
+**Посмотреть без запуска:** [проверенные результаты](RESULTS.md),
+[отчёт](docs/REPORT.md), [Word-версия](deliverables/US_Traffic_Accidents_Report.docx),
+[презентация](deliverables/US_Traffic_Accidents_Presentation.pptx).
+
+| Модель | Test F1-macro | Test Accuracy |
+|---|---:|---:|
+| Dummy | 0,2394 | 0,9184 |
+| Logistic Regression | 0,1384 | 0,2236 |
+| HGB с погодой | 0,2081 | 0,3984 |
+
+Это зафиксированная временная проверка. HGB не превзошёл baseline.
+Первый полный запуск скачивает CSV 3,06 ГБ и выполняет обработку и обучение.
+Он занимает время, а не секунды. Фактическое выполнение на серверах Colab
+пока не подтверждено. Готовые результаты можно проверить сразу по ссылкам выше.
+
+
 Финальный проект №42 по Programming for Data Analysis and Database, Cluster 8.
 Анализируем 7 728 394 зарегистрированных ДТП США за 2016–2023 и оцениваем
 Severity — влияние ДТП на движение. Проект не оценивает тяжесть травм и
@@ -8,8 +28,8 @@ Severity — влияние ДТП на движение. Проект не оц
 ## Google Colab
 
 1. Откройте `US_Accidents_Colab.ipynb` в Google Colab.
-2. Выберите Runtime → Run all. Не нужно загружать модули или менять пути.
-3. Ноутбук разворачивает встроенный архив настоящих `src/*.py`, устанавливает
+2. Выберите Runtime → Run all. Код модулей и данные загружаются автоматически. Пути менять и файлы загружать не нужно.
+3. Ноутбук распаковывает обычный ZIP с настоящими `src/*.py`, устанавливает
    версии из requirements.txt и скачивает CSV с проверкой SHA-256.
 4. При повторном запуске готовые Parquet, SQLite и метрики используются снова.
    После завершения создаётся `traffic_results.zip` с результатами.
@@ -106,7 +126,7 @@ confusion matrix, ошибки по погоде и время/RAM сохран�
 - `docs/experiments/US_Accidents_Exploration.ipynb`: прежние исследования.
 - `docs/REPORT.md`: письменный отчёт. `deliverables/`: презентация.
 - `docs/DEFENSE.md`: объяснения и сценарий демонстрации.
-- `scripts/build_notebook.py`: обновляет встроенные модули после изменения src.
+- `scripts/build_notebook.py`: пересобирает notebook и project_code.zip после изменения src.
 - `scripts/verify_project.py`: проверки полного набора, меню и агрегатов.
 
 Погодный ablation и ошибки по погодным группам выделены как Original

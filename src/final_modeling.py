@@ -1,6 +1,7 @@
 """Фиксированное сравнение моделей и однократная финальная оценка."""
 import argparse
 import json
+import os
 import subprocess
 import sys
 import time
@@ -141,7 +142,7 @@ def worker(data_dir, output, kind, with_weather=True):
             return model.fit(x,y,model__sample_weight=weight)
     import psutil
     before = psutil.Process().memory_info().rss / 1024**2
-    with threadpool_limits(limits=4):
+    with threadpool_limits(limits=int(os.environ.get('TRAFFIC_NUM_THREADS', '1'))):
         seconds, peak = fit_with_measurement(WeightedFit(), train[features(with_weather)],train.Severity)
         started = time.perf_counter()
         pred = model.predict(validation[features(with_weather)])
@@ -163,7 +164,7 @@ def evaluate(model, frame, output, name):
     output = Path(output)
     with_weather = not name.endswith('_no_weather')
     started = time.perf_counter()
-    with threadpool_limits(limits=4):
+    with threadpool_limits(limits=int(os.environ.get('TRAFFIC_NUM_THREADS', '1'))):
         pred = model.predict(frame[features(with_weather)])
     seconds = time.perf_counter()-started
     pd.DataFrame(classification_report(frame.Severity,pred,labels=LABELS,output_dict=True,zero_division=0)).T.to_csv(output/f'{name}_test_classes.csv')
@@ -187,6 +188,32 @@ def evaluate(model, frame, output, name):
                 test_rows=len(frame), equal_test_rows=len(equal),predict_seconds=seconds)
 
 
+
+def launch_worker(output, kind, with_weather=True):
+    """Ограничиваем нативные потоки до импорта библиотек и сохраняем диагностику."""
+    output = Path(output)
+    env = os.environ.copy()
+    threads = env.get('TRAFFIC_NUM_THREADS', '1')
+    for name in ['OMP_NUM_THREADS', 'OPENBLAS_NUM_THREADS', 'MKL_NUM_THREADS',
+                 'BLIS_NUM_THREADS', 'NUMEXPR_NUM_THREADS', 'VECLIB_MAXIMUM_THREADS']:
+        env[name] = threads
+    env['TRAFFIC_NUM_THREADS'] = threads
+    env['PYTHONFAULTHANDLER'] = '1'
+    name = kind if with_weather else kind + '_no_weather'
+    command = [sys.executable, '-X', 'faulthandler', '-m', 'src.final_modeling',
+               '--worker', kind, '--output', str(output)]
+    if not with_weather:
+        command.append('--no-weather')
+    log = output / (name + '_worker.log')
+    with log.open('w', encoding='utf-8') as stream:
+        completed = subprocess.run(command, env=env, stdout=stream, stderr=subprocess.STDOUT)
+    contents = log.read_text(encoding='utf-8', errors='replace')
+    if completed.returncode:
+        raise RuntimeError(f'Процесс {name} завершился с кодом {completed.returncode}. '
+                           f'Данные сохранены. Диагностика: {log}\n' + contents[-12000:])
+    print(contents[-2500:], flush=True)
+
+
 def run(folder, output='outputs/final'):
     output = Path(output)
     output.mkdir(parents=True,exist_ok=True)
@@ -199,7 +226,7 @@ def run(folder, output='outputs/final'):
     kinds = ['dummy','logistic','hgb_balanced','hgb_sqrt','hgb_none']
     for kind in kinds:
         if not (output/f'{kind}_validation.json').exists():
-            subprocess.run([sys.executable,'-m','src.final_modeling','--worker',kind,'--output',str(output)],check=True)
+            launch_worker(output, kind)
     scores = pd.DataFrame([json.loads((output/f'{kind}_validation.json').read_text()) for kind in kinds])
     hgb = scores[scores.model.str.startswith('hgb')].sort_values('f1_macro',ascending=False).iloc[0].model
     winner = scores[scores.model != 'dummy'].sort_values('f1_macro',ascending=False).iloc[0].model
@@ -208,7 +235,7 @@ def run(folder, output='outputs/final'):
                   protocol='docs/FINAL_PROTOCOL.md',test_used_for_selection=False)
     (output/'selection_before_test.json').write_text(json.dumps(freeze,indent=2))
     if not (output/f'{hgb}_no_weather_validation.json').exists():
-        subprocess.run([sys.executable,'-m','src.final_modeling','--worker',hgb,'--no-weather','--output',str(output)],check=True)
+        launch_worker(output, hgb, with_weather=False)
     scores = pd.concat([scores,pd.DataFrame([json.loads((output/f'{hgb}_no_weather_validation.json').read_text())])],ignore_index=True)
     scores.to_csv(output/'validation_scores.csv',index=False)
     test = pd.read_parquet(data_dir/'test.parquet')
