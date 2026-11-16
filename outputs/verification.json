@@ -1,0 +1,7 @@
+{
+  "full_audit_rows": 7728394,
+  "split_id_intersections": 0,
+  "test_hash_outside_old_samples": true,
+  "menu_invalid_year_state_exit": true,
+  "aggregate_parquet_sqlite_equal": true
+}

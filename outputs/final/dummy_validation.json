@@ -1,0 +1,11 @@
+{
+  "model": "dummy",
+  "accuracy": 0.8845800478775903,
+  "f1_macro": 0.234688902939889,
+  "train_seconds": 0.021586540999123827,
+  "validation_predict_seconds": 0.026458790998731274,
+  "peak_process_ram_mib": 1004.109375,
+  "before_fit_ram_mib": 1171.6875,
+  "train_rows": 1247472,
+  "train_unique_ids": 1247472
+}

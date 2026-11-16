@@ -1,0 +1,11 @@
+{
+  "model": "hgb_sqrt",
+  "accuracy": 0.4627861517374279,
+  "f1_macro": 0.25058325178554847,
+  "train_seconds": 11.702540500002215,
+  "validation_predict_seconds": 6.6172097500020755,
+  "peak_process_ram_mib": 955.65625,
+  "before_fit_ram_mib": 612.84375,
+  "train_rows": 146091,
+  "train_unique_ids": 146091
+}

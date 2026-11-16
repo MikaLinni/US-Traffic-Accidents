@@ -1,0 +1,2 @@
+model,train_rows,accuracy_natural,f1_macro_natural,accuracy_equal_classes,f1_macro_equal_classes,train_seconds,peak_process_ram_mib
+Gradient Boosting + road / location,200000,0.46385222567287787,0.31456679681583827,0.6219935531862137,0.615080133270558,13.05966370799797,3040.59375

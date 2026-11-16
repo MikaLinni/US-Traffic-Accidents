@@ -1,0 +1,3 @@
+model,accuracy,f1_macro,train_seconds,peak_process_ram_mib
+Logistic + location / road,0.6425450040177871,0.2806758410475067,3.245446875000198,1190.078125
+Random Forest + location / road,0.6381878659627802,0.28023571983082984,8.194514750000963,1475.5

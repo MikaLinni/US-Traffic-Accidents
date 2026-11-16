@@ -1,0 +1,7 @@
+{
+  "selected_model": "hgb_none",
+  "selected_hgb": "hgb_none",
+  "selection_metric": "validation natural F1-macro",
+  "protocol": "docs/FINAL_PROTOCOL.md",
+  "test_used_for_selection": false
+}

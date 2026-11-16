@@ -1,0 +1,11 @@
+{
+  "model": "hgb_none_no_weather",
+  "accuracy": 0.49216286907418894,
+  "f1_macro": 0.25934246200250954,
+  "train_seconds": 8.997628874996735,
+  "validation_predict_seconds": 3.503781415995036,
+  "peak_process_ram_mib": 902.265625,
+  "before_fit_ram_mib": 625.828125,
+  "train_rows": 146091,
+  "train_unique_ids": 146091
+}

@@ -1,0 +1,11 @@
+{
+  "model": "logistic",
+  "accuracy": 0.31177562762063726,
+  "f1_macro": 0.18428321942758333,
+  "train_seconds": 4.697168083002907,
+  "validation_predict_seconds": 0.4012081249966286,
+  "peak_process_ram_mib": 770.3125,
+  "before_fit_ram_mib": 619.546875,
+  "train_rows": 146091,
+  "train_unique_ids": 146091
+}
