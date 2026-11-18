@@ -147,3 +147,4 @@ def show_dashboard(database_path, output_folder='outputs/dashboard'):
     save.on_click(save_result)
     render()
     return panel
+ 
